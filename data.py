@@ -15,14 +15,11 @@ class CollateUpSampling():
         # get batch size
         batch_size = len(batch_list)
 
-        # * in *batch_list is transpose of batch_list
-        # There are as many tensors as there are batchsize in batch_list
-        # comp_batch and partial_batch are tuple which include many tensors
-        # input_batch, truth_batch, a, b, c, d = list(zip(*batch_list))
-        # input_batch, truth_batch, a, b = list(zip(*batch_list))
-        input_batch = list(zip(*batch_list))
-        # transform tuple of complete point cloud to tensor
-        input_batch = list(input_batch)
+        # input_batch, a, b = list(zip(*batch_list))
+        # input_batch = list(input_batch)
+        # a = list(a)
+        # b = list(b)
+        input_batch = list(batch_list)
 
         # get max num points in each batch
         max_num_points = 0
@@ -53,13 +50,33 @@ class CollateUpSampling():
 
         return input_batch, unique_mask_batch
 
+class DataNormalization():
+    def __init__(self):
+        pass
+
+    def __call__(self, tensor):
+        """0-1 normalization
+        Args:
+            beam_tensor (tensor): (N, C)
+        Returns:
+            tensor: (N, C)
+        """
+
+        max_values = torch.max(tensor, dim=0, keepdim=True)[0]
+        min_values = torch.min(tensor, dim=0, keepdim=True)[0]
+
+        normalized_tensor = (tensor - min_values)/(max_values - min_values)
+        return normalized_tensor, max_values, min_values
+# ----------------------------------------------------------------------------------------
+
 class MakeDataset(Dataset):
-    def __init__(self, path, eval, subset, device):
+    def __init__(self, dataset_path, eval, subset, device, transform=DataNormalization):
         super().__init__()
-        self.path = path
+        self.dataset_path = dataset_path
         self.eval = eval
         self.subset = subset
         self.device = device
+        self.transform = transform() # min-max normalization
 
     def __len__(self):
         points_path_list = self.get_item_from_json()
@@ -71,7 +88,10 @@ class MakeDataset(Dataset):
 
         points_path_list = points_path_list[index]
         points = np.loadtxt(points_path_list).astype(np.float32)
+        points = torch.tensor(points, device=self.device)
 
+        # normalized_points, max_values, min_values = self.transform(points)
+        # return normalized_points, max_values, min_values
         return points
 
     def get_item_from_json(self):

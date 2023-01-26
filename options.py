@@ -10,7 +10,7 @@ def make_parser():
     # train params
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--epochs", default=300, type=int)
-    parser.add_argument("--batch", default=64, type=int)
+    parser.add_argument("--batch", default=50, type=int)
     parser.add_argument("--lr", default=1e-3, type=float)
     # model params
     parser.add_argument("--z_dim", default=64, type=int) # 64 ~ 256

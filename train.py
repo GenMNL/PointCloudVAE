@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+import torch.multiprocessing as multiprocessing
 import numpy as np
 from tensorboardX import SummaryWriter
 import parser
@@ -18,7 +19,7 @@ def train_one_epoch(model, dataloader, optim):
     sum_mse_loss = 0.0
     sum_kl_loss = 0.0
     sum_train_loss = 0.0
-    for i, data in enumerate(tqdm(dataloader, desc="train"), leave=False):
+    for i, data in enumerate(tqdm(dataloader, desc="train", leave=False)):
         # load data
         original_point_cloud = data[0]
 
@@ -50,7 +51,7 @@ def val_one_epoch(model, dataloader):
 
     sum_val_loss = 0.0
     with torch.no_grad():
-        for i, data in enumerate(tqdm(dataloader, desc="validation"), leave=False):
+        for i, data in enumerate(tqdm(dataloader, desc="validation", leave=False)):
             # load data
             original_point_cloud = data[0]
 
@@ -73,13 +74,13 @@ def val_one_epoch(model, dataloader):
 if __name__ == "__main__":
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # prepare options
-    args = make_parser()
+    parser = make_parser()
     args = parser.parse_args()
 
     # make path of save params
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
-    dt_now = datetime.now()
+    dt_now = datetime.datetime.now()
     save_date = str(dt_now.month) + str(dt_now.day) + "-" + str(dt_now.hour) + "-" +str(dt_now.minute)
     if not os.path.exists(os.path.join(args.save_dir, str(dt_now.year))):
         os.mkdir(os.path.join(args.save_dir, str(dt_now.year)))
@@ -106,16 +107,19 @@ if __name__ == "__main__":
 
             if args.subset in subset_dict:
                 subset_id = subset_dict[args.subset]
+            else:
+                print("You should check subset name!")
+                exit()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # training data
-    train_dataset = MakeDataset(path=args.dataset_dir, eval="train",
+    train_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="train",
                                 subset=subset_id, device=args.device)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
                                   collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
-    val_dataset = MakeDataset(path=args.dataset_dir, eval="val",
+    val_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="val",
                                 subset=subset_id, device=args.device)
     val_dataloader = DataLoader(dataset=val_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
@@ -124,7 +128,7 @@ if __name__ == "__main__":
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # prepare model
-    Model = PointVAE(in_dim=3, z_dim=args.z_dim)
+    Model = PointVAE(in_dim=3, z_dim=args.z_dim).to(device=args.device)
     optim = torch.optim.Adam(params=Model.parameters(), lr=args.lr)
 
     # prepare writter
