@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
+from tensorboardX import SummaryWriter
 import parser
 import datetime
 import os
@@ -10,35 +11,67 @@ from data import *
 from model import PointVAE
 from options import make_parser
 
+# --------------------------------------------------------------------------------------
 def train_one_epoch(model, dataloader, optim):
     model.train()
 
-    count = 0
+    sum_mse_loss = 0.0
+    sum_kl_loss = 0.0
     sum_train_loss = 0.0
     for i, data in enumerate(tqdm(dataloader, desc="train"), leave=False):
-        point_cloud = data[0]
+        # load data
+        original_point_cloud = data[0]
 
-        _, prediction = model(point_cloud)
+        # get prediction
+        mu, log_var, _, prediction = model(original_point_cloud)
 
+        # cal loss
+        mse_loss = torch.sum((prediction - original_point_cloud)**2)
+        kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
+        train_loss = mse_loss + kl_loss
+
+        # optimization
+        optim.zero_grad()
+        train_loss.backward()
+        optim.step()
+
+        # sum train loss
+        sum_mse_loss += mse_loss
+        sum_kl_loss += kl_loss
         sum_train_loss += train_loss
-        count += 1
 
-    sum_train_loss /= count
-    return sum_train_loss
+    sum_mse_loss /= len(dataloader)
+    sum_kl_loss /= len(dataloader)
+    sum_train_loss /= len(dataloader)
+    return sum_mse_loss, sum_kl_loss, sum_train_loss
 
 def val_one_epoch(model, dataloader):
     model.eval()
 
-    count = 0
     sum_val_loss = 0.0
     with torch.no_grad():
         for i, data in enumerate(tqdm(dataloader, desc="validation"), leave=False):
-            point_cloud = data[0]
+            # load data
+            original_point_cloud = data[0]
 
-            _, prediction = model(point_cloud)
+            # get prediction
+            mu, log_var, _, prediction = model(original_point_cloud)
 
+            # cal loss
+            mse_loss = torch.sum((prediction - original_point_cloud)**2)
+            kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
+            val_loss = mse_loss + kl_loss
+
+            # sum train loss
+            sum_val_loss += val_loss
+
+    sum_val_loss /= len(dataloader)
+    return sum_val_loss
+# --------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------
 if __name__ == "__main__":
-
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # prepare options
     args = make_parser()
     args = parser.parse_args()
@@ -57,8 +90,9 @@ if __name__ == "__main__":
         os.mkdir(save_dir)
         with open(os.path.join(save_dir, "conditions.json"), "w") as f:
             json.dump(args.__dict__, f, indent=4)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # make dataloader
     if args.subset == "all":
         subset_id = "all"
@@ -72,38 +106,56 @@ if __name__ == "__main__":
 
             if args.subset in subset_dict:
                 subset_id = subset_dict[args.subset]
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # training data
     train_dataset = MakeDataset(path=args.dataset_dir, eval="train",
                                 subset=subset_id, device=args.device)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
-                                  collate_fn=CollateTrain(args.device)) # DataLoader is iterable object.
+                                  collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
     val_dataset = MakeDataset(path=args.dataset_dir, eval="val",
                                 subset=subset_id, device=args.device)
     val_dataloader = DataLoader(dataset=val_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
-                                  collate_fn=CollateTrain(args.device)) # DataLoader is iterable object.
+                                  collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # prepare model
-    Model = PointVAE(in_dim=3, num_out_points=args.num_out_points, z_dim=args.z_dim)
+    Model = PointVAE(in_dim=3, z_dim=args.z_dim)
     optim = torch.optim.Adam(params=Model.parameters(), lr=args.lr)
 
-
+    # prepare writter
+    writter = SummaryWriter()
     torch.autograd.set_detect_anomaly(True)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # main loop
     best_loss = np.inf
     for epoch in tqdm(range(1, args.epochs), desc="main loop"):
-        train_loss = train_one_epoch(Model, train_dataloader, optim)
+
+        # train and cal loss
+        mse_loss, kl_loss, train_loss = train_one_epoch(Model, train_dataloader, optim)
         val_loss = val_one_epoch(Model, val_dataloader)
 
+        # sabe time history of data
+        writter.add_scalar("mse_loss", mse_loss, epoch)
+        writter.add_scalar("kl_loss", kl_loss, epoch)
+        writter.add_scalar("train_loss", train_loss, epoch)
+        writter.add_scalar("validation_loss", val_loss, epoch)
 
+        # save normal loss
         torch.save({
             "epoch": epoch,
             "model_state_dict": Model.state_dict(),
             "optimizer_state_dict": optim.state_dict(),
             "loss": train_loss
         }, save_normal)
+
+        # save best loss
         if val_loss < best_loss:
             best_loss = val_loss
             torch.save({

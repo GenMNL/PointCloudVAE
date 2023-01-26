@@ -3,20 +3,23 @@ import torch.nn as nn
 from module import SharedMLP, LinearMLP
 
 class PointVAE(nn.Module):
-    def __init__(self, in_dim, num_out_points, z_dim):
+    def __init__(self, in_dim, z_dim):
         super().__init__()
-        self.num_out_points = num_out_points
+        self.z_dim = z_dim
         self.encoder = Encoder(in_dim, z_dim)
-        self.decoder = Decoder(z_dim, num_out_points)
+        self.decoder = Decoder(z_dim)
 
     def forward(self, x):
-        B, _, _ = x.shape
+        B, C, N = x.shape
 
-        mu, log_var, z = self.encoder(x)
-        out = self.decoder(z)
+        point_feature, mu, log_var, z = self.encoder(x)
 
-        out_point_cloud = out.view(B, 3, self.num_out_points)
-        return z, out_point_cloud
+        z = z.view(B, self.z_dim, 1).repeat(1, 1, N)
+        features = torch.concat([point_feature, z], dim=1)
+
+        out = self.decoder(features)
+
+        return mu, log_var, z, out
 
 class Encoder(nn.Module):
     def __init__(self, in_dim, z_dim):
@@ -61,17 +64,19 @@ class Encoder(nn.Module):
         eps = torch.randn_like(torch.exp(log_var), device=device)
         z = mu + torch.exp(0.5*log_var)*eps
 
-        return mu, log_var, z
+        return point_feature, mu, log_var, z
 
 class Decoder(nn.Module):
-    def __init__(self, z_dim, num_out_points):
+    def __init__(self, z_dim):
         super().__init__()
         self.fc = nn.Sequential(
-            LinearMLP(z_dim, 256),
-            LinearMLP(256, 512),
-            LinearMLP(512, 1024),
-            LinearMLP(1024, 3*num_out_points),
-            nn.Linear(3*num_out_points, 3*num_out_points)
+            SharedMLP(64+z_dim, 256),
+            SharedMLP(256, 512),
+            SharedMLP(512, 1024),
+            SharedMLP(1024, 256),
+            SharedMLP(256, 64),
+            SharedMLP(64, 3),
+            nn.Conv1d(3, 3, 1)
         )
 
     def forward(self, x):
@@ -80,8 +85,8 @@ class Decoder(nn.Module):
 
 if __name__ == "__main__":
     x = torch.randn(100, 3, 90)
-    Net = PointVAE(in_dim=3, num_out_points=1000, z_dim=64)
-    z, out = Net(x)
+    Net = PointVAE(in_dim=3, z_dim=256)
+    mu, log_var, z, out = Net(x)
 
     print(z.shape)
     print(out.shape)

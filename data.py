@@ -7,10 +7,51 @@ import json
 
 """collateの作成
 """
+class CollateUpSampling():
+    def __init__(self, device):
+        self.device = device
 
+    def __call__(self, batch_list):
+        # get batch size
+        batch_size = len(batch_list)
 
+        # * in *batch_list is transpose of batch_list
+        # There are as many tensors as there are batchsize in batch_list
+        # comp_batch and partial_batch are tuple which include many tensors
+        # input_batch, truth_batch, a, b, c, d = list(zip(*batch_list))
+        # input_batch, truth_batch, a, b = list(zip(*batch_list))
+        input_batch = list(zip(*batch_list))
+        # transform tuple of complete point cloud to tensor
+        input_batch = list(input_batch)
 
+        # get max num points in each batch
+        max_num_points = 0
+        for j in range(batch_size):
+            n = len(input_batch[j])
+            if max_num_points < n:
+                max_num_points = n
 
+        # up sampling
+        unique_mask_list = [0]*batch_size
+        for i in range(batch_size):
+            n = len(input_batch[i]) # num of each tensor in bach
+            idx = np.random.permutation(n)
+
+            if n < max_num_points:
+                unique_idx = np.random.randint(0, n, size=(max_num_points - n)) # unique indecies
+                idx = np.concatenate([idx, unique_idx])
+            input_batch[i] = input_batch[i][idx, :]
+
+            # make unique mask for removing unique points in loss and differential term
+            unique_mask = torch.zeros_like(input_batch[i], dtype=torch.bool, device=self.device) 
+            unique_mask[n:, :] = True
+            unique_mask_list[i] = unique_mask
+
+        # torch.stack concatenate each tensors in the direction of the specified dim(dim=0)
+        input_batch = torch.stack(input_batch, dim=0).to(self.device).permute(0, 2, 1)
+        unique_mask_batch = torch.stack(unique_mask_list, dim=0).to(self.device).permute(0, 2, 1)
+
+        return input_batch, unique_mask_batch
 
 class MakeDataset(Dataset):
     def __init__(self, path, eval, subset, device):
