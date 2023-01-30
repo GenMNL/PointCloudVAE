@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # make dataloader
+    # get subset id
     if args.subset == "all":
         subset_id = "all"
     else:
@@ -110,17 +110,15 @@ if __name__ == "__main__":
             else:
                 print("You should check subset name!")
                 exit()
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # training data
+    # make dataloader
     train_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="train",
-                                subset=subset_id, device=args.device)
+                                subset_id=subset_id, device=args.device)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
                                   collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
     val_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="val",
-                                subset=subset_id, device=args.device)
+                                subset_id=subset_id, device=args.device)
     val_dataloader = DataLoader(dataset=val_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
                                   collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
