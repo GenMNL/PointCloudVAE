@@ -17,12 +17,15 @@ def eval(model, dataloader, save_dir):
     model.eval()
 
     feature_df = pd.DataFrame(np.zeros((len_dataset, args.z_dim)), index=np.arange(1, len_dataset+1),
-                              columns=np.arange(1, args._dim+1))
+                              columns=np.arange(1, args.z_dim+1))
     with torch.no_grad():
         for i, data in enumerate(tqdm(dataloader, desc="eval")):
+            # load data
             original_point_cloud = data[0]
             _ = data[1]
             subset_name = data[2]
+
+            _, C, N = original_point_cloud.shape
 
             # get prediction
             _, _, z, prediction = model(original_point_cloud)
@@ -32,10 +35,22 @@ def eval(model, dataloader, save_dir):
             feature_df.loc[i+1,:] = z
 
             original_point_cloud = original_point_cloud.detach().cpu().numpy()
+            original_point_cloud = original_point_cloud.reshape(N, C)
+            prediction = prediction.detach().cpu().numpy()
+            prediction = prediction.reshape(N, C)
+
+            subset_save_dir = os.path.join(save_dir, subset_name[0])
+            if not os.path.exists(subset_save_dir):
+                os.makedirs(subset_save_dir)
+                os.makedirs(os.path.join(subset_save_dir, "ground_truth"))
+                os.makedirs(os.path.join(subset_save_dir, "prediction"))
+
+            export_ply(subset_save_dir, i, "ground_truth", original_point_cloud)
+            export_ply(subset_save_dir, i, "prediction", prediction)
             print(original_point_cloud.shape)
             print(prediction.shape)
             print(subset_name)
-            exit
+            exit()
 
 
 # ----------------------------------------------------------------------------------------
@@ -45,10 +60,8 @@ if __name__ == "__main__":
     parser = make_parser()
     args = parser.parse_args()
 
-    result_dir = os.path.join(args.result_dir, args.subset)
-    if not os.path.exists(result_dir):
-        os.makedirs(result_dir)
-
+    if not os.path.exists(args.result_dir):
+        os.makedirs(args.result_dir)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # get subset id
@@ -83,12 +96,11 @@ if __name__ == "__main__":
     tar_path = os.path.join("./checkpoint", args.year, args.date, args.type+"_parameters.tar")
     train_tar = torch.load(tar_path)
 
-    result_dir = 'result'
-    result_txt = os.path.join(result_dir, 'result.txt')
+    result_txt = os.path.join(args.result_dir, 'result.txt')
     with open(result_txt, 'w') as f:
         f.write('train_data: {}\n'.format(args.date))
         f.write('epoch: {}\n'.format(train_tar['epoch']))
         f.write('loss : {}\n'.format(train_tar['loss']))
 
     Model.load_state_dict(train_tar["model_state_dict"])
-    eval(Model, eval_dataloader, result_dir)
+    eval(Model, eval_dataloader, args.result_dir)

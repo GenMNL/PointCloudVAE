@@ -14,12 +14,13 @@ class PointVAE(nn.Module):
 
         point_feature, mu, log_var, z = self.encoder(x)
 
+        z_clone = z.clone().detach()
         z = z.view(B, self.z_dim, 1).repeat(1, 1, N)
         features = torch.concat([point_feature, z], dim=1)
 
         out = self.decoder(features)
 
-        return mu, log_var, z, out
+        return mu, log_var, z_clone, out
 
 class Encoder(nn.Module):
     def __init__(self, in_dim, z_dim):
