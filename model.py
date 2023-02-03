@@ -19,6 +19,7 @@ class PointVAE(nn.Module):
         features = torch.concat([point_feature, z], dim=1)
 
         out = self.decoder(features)
+        out = out.view(B, C, N)
 
         return mu, log_var, z_clone, out
 
@@ -71,12 +72,17 @@ class Decoder(nn.Module):
     def __init__(self, z_dim):
         super().__init__()
         self.fc = nn.Sequential(
-            SharedMLP(64+z_dim, 256),
-            SharedMLP(256, 512),
-            SharedMLP(512, 1024),
-            SharedMLP(1024, 256),
-            SharedMLP(256, 64),
-            SharedMLP(64, 3),
+            # SharedMLP(64+z_dim, 256),
+            # SharedMLP(256, 512),
+            # SharedMLP(512, 1024),
+            # SharedMLP(1024, 256),
+            # SharedMLP(256, 64),
+            # SharedMLP(64, 3),
+            # nn.Conv1d(3, 3, 1)
+            SharedMLP(64+z_dim, 64),
+            SharedMLP(64, 32),
+            SharedMLP(32, 16),
+            SharedMLP(16, 3),
             nn.Conv1d(3, 3, 1)
         )
 

@@ -7,6 +7,17 @@ from options import make_parser
 from model import PointVAE
 from data import *
 
+def convert_subset_name_id(subset_name):
+    subset_info_ = os.path.join(args.dataset_dir, "synsetoffset2category.txt")
+
+    with open(subset_info_, "r") as f:
+        for idx, subset in enumerate(f):
+            name, _ = subset.split()
+            if subset_name == name:
+                label_id = idx
+                break
+    return label_id
+
 def export_ply(dir_path, file_name, type, point_cloud):
     pc = o3d.geometry.PointCloud()
     pc.points = o3d.utility.Vector3dVector(point_cloud)
@@ -16,8 +27,10 @@ def export_ply(dir_path, file_name, type, point_cloud):
 def eval(model, dataloader, save_dir):
     model.eval()
 
+    len_dataset = len(dataloader)
     feature_df = pd.DataFrame(np.zeros((len_dataset, args.z_dim)), index=np.arange(1, len_dataset+1),
                               columns=np.arange(1, args.z_dim+1))
+    labels = np.zeros((1, len_dataset), dtype=int)
     with torch.no_grad():
         for i, data in enumerate(tqdm(dataloader, desc="eval")):
             # load data
@@ -33,11 +46,13 @@ def eval(model, dataloader, save_dir):
             z = z.detach().cpu().numpy()
             z = z.reshape(args.z_dim)
             feature_df.loc[i+1,:] = z
+            label_id = convert_subset_name_id(subset_name)
+            labels[0, i] = int(label_id)
 
             original_point_cloud = original_point_cloud.detach().cpu().numpy()
-            original_point_cloud = original_point_cloud.reshape(N, C)
+            original_point_cloud = original_point_cloud.reshape(C, N).T
             prediction = prediction.detach().cpu().numpy()
-            prediction = prediction.reshape(N, C)
+            prediction = prediction.reshape(C, N).T
 
             subset_save_dir = os.path.join(save_dir, subset_name[0])
             if not os.path.exists(subset_save_dir):
@@ -47,10 +62,11 @@ def eval(model, dataloader, save_dir):
 
             export_ply(subset_save_dir, i, "ground_truth", original_point_cloud)
             export_ply(subset_save_dir, i, "prediction", prediction)
-            print(original_point_cloud.shape)
-            print(prediction.shape)
-            print(subset_name)
-            exit()
+    
+    feature_path = os.path.join(save_dir, "emb.csv")
+    feature_df.to_csv(feature_path)
+    labels_save_path = os.path.join(save_dir, 'labels.csv')
+    np.savetxt(labels_save_path, labels, delimiter=',')
 
 
 # ----------------------------------------------------------------------------------------
@@ -86,10 +102,7 @@ if __name__ == "__main__":
                                 subset_id=subset_id, device=args.device)
     eval_dataloader = DataLoader(dataset=eval_dataset, batch_size=1,
                                   collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
-    len_dataset = len(eval_dataset)
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     Model = PointVAE(in_dim=3, z_dim=args.z_dim).to(device=args.device)
 
     # load tar

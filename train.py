@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-import torch.multiprocessing as multiprocessing
 import numpy as np
 from tensorboardX import SummaryWriter
 import parser
@@ -27,9 +26,9 @@ def train_one_epoch(model, dataloader, optim):
         mu, log_var, _, prediction = model(original_point_cloud)
 
         # cal loss
-        mse_loss = torch.sum((prediction - original_point_cloud)**2)
         kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
-        train_loss = mse_loss + kl_loss
+        mse_loss = torch.sum((prediction - original_point_cloud)**2)
+        train_loss = 10*kl_loss + mse_loss
 
         # optimization
         optim.zero_grad()
@@ -59,9 +58,9 @@ def val_one_epoch(model, dataloader):
             mu, log_var, _, prediction = model(original_point_cloud)
 
             # cal loss
-            mse_loss = torch.sum((prediction - original_point_cloud)**2)
             kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
-            val_loss = mse_loss + kl_loss
+            mse_loss = torch.sum((prediction - original_point_cloud)**2)
+            val_loss = 10*kl_loss + mse_loss
 
             # sum train loss
             sum_val_loss += val_loss
@@ -80,13 +79,13 @@ if __name__ == "__main__":
     # make path of save params
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
+
     dt_now = datetime.datetime.now()
     save_date = str(dt_now.month) + str(dt_now.day) + "-" + str(dt_now.hour) + "-" +str(dt_now.minute)
     if not os.path.exists(os.path.join(args.save_dir, str(dt_now.year))):
         os.mkdir(os.path.join(args.save_dir, str(dt_now.year)))
+
     save_dir = os.path.join(args.save_dir, str(dt_now.year), save_date)
-    save_normal = os.path.join(save_dir, "normal_parameters.tar")
-    save_best = os.path.join(save_dir, "best_parameters.tar")
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
         with open(os.path.join(save_dir, "conditions.json"), "w") as f:
@@ -136,8 +135,10 @@ if __name__ == "__main__":
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # main loop
+    save_normal = os.path.join(save_dir, "normal_parameters.tar")
+    save_best = os.path.join(save_dir, "best_parameters.tar")
     best_loss = np.inf
-    for epoch in tqdm(range(1, args.epochs), desc="main loop"):
+    for epoch in tqdm(range(1, args.epochs+1), desc="main loop"):
 
         # train and cal loss
         mse_loss, kl_loss, train_loss = train_one_epoch(Model, train_dataloader, optim)
