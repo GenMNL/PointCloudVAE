@@ -1,6 +1,8 @@
 checkpoint/
 runs/
-result/
+*.ply
+*.csv
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
