@@ -69,60 +69,55 @@ class DataNormalization():
 # ----------------------------------------------------------------------------------------
 
 class MakeDataset(Dataset):
-    def __init__(self, dataset_path, eval, subset_id, device, transform=DataNormalization):
+    def __init__(self, points_path_list, subset_name_list, device, transform=DataNormalization):
         super().__init__()
-        self.dataset_path = dataset_path
-        self.eval = eval
-        self.subset_id = subset_id
+        self.points_path_list = points_path_list
+        self.subset_name_list = subset_name_list
         self.device = device
         self.transform = transform() # min-max normalization
 
     def __len__(self):
-        points_path_list, _ = self.get_item_from_json()
-
-        return len(points_path_list)
+        return len(self.points_path_list)
 
     def __getitem__(self, index):
-        points_path_list, subset_name_list = self.get_item_from_json()
-
-        points_path_list = points_path_list[index]
+        points_path_list = self.points_path_list[index]
         points = np.loadtxt(points_path_list).astype(np.float32)
         points = torch.tensor(points, device=self.device)
 
-        subset_name_list = subset_name_list[index]
+        subset_name_list = self.subset_name_list[index]
         return points, subset_name_list
 
-    def get_item_from_json(self):
-        json_path = os.path.join(self.dataset_path, "train_test_split")
-        # read json file
-        with open(f"{json_path}/shuffled_{self.eval}_file_list.json", "r") as f:
-            self.data_list = json.load(f)
+def get_item_from_json(dataset_path, eval, subset_id):
+    json_path = os.path.join(dataset_path, "train_test_split")
+    # read json file
+    with open(f"{json_path}/shuffled_{eval}_file_list.json", "r") as f:
+        data_list = json.load(f)
 
-        # get the id and index of object which wants to train(or test)
-        points_path_list = []
-        subset_name_list = []
-        for i in range(len(self.data_list)):
-            full_path = self.data_list[i].split("/")
-            if self.subset_id == "all":
-                points_file = os.path.join(self.dataset_path, str(full_path[1]), "points", str(full_path[2])+".pts")
+    # get the id and index of object which wants to train(or test)
+    points_path_list = []
+    subset_name_list = []
+    for i in range(len(data_list)):
+        full_path = data_list[i].split("/")
+        if subset_id == "all":
+            points_file = os.path.join(dataset_path, str(full_path[1]), "points", str(full_path[2])+".pts")
+            points_path_list.append(points_file)
+        else:
+            if str(full_path[1]) == subset_id:
+                points_file = os.path.join(dataset_path, str(full_path[1]), "points", str(full_path[2])+".pts")
                 points_path_list.append(points_file)
-            else:
-                if str(full_path[1]) == self.subset_id:
-                    points_file = os.path.join(self.dataset_path, str(full_path[1]), "points", str(full_path[2])+".pts")
-                    points_path_list.append(points_file)
-            
-            subset_name = self.search_subset(str(full_path[1]))
-            subset_name_list.append(subset_name)
+        
+        subset_name = search_subset(dataset_path, str(full_path[1]))
+        subset_name_list.append(subset_name)
 
-        return points_path_list, subset_name_list
+    return points_path_list, subset_name_list
 
-    def search_subset(self, subset_id):
+def search_subset(dataset_path, subset_id):
 
-        subset_id_path = os.path.join(self.dataset_path, "synsetoffset2category.txt")
-        with open(subset_id_path, "r") as subset_id_list:
-            subset_dict = {}
-            for i in subset_id_list:
-                name, id = i.split()
-                subset_dict[id] = name
+    subset_id_path = os.path.join(dataset_path, "synsetoffset2category.txt")
+    with open(subset_id_path, "r") as subset_id_list:
+        subset_dict = {}
+        for i in subset_id_list:
+            name, id = i.split()
+            subset_dict[id] = name
 
-        return subset_dict[subset_id]
+    return subset_dict[subset_id]

@@ -110,17 +110,19 @@ if __name__ == "__main__":
                 print("You should check subset name!")
                 exit()
 
+    train_points_path_list, train_subset_name_list = get_item_from_json(args.dataset_dir, "train", subset_id)
+    val_points_path_list, val_subset_name_list = get_item_from_json(args.dataset_dir, "val", subset_id)
     # make dataloader
-    train_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="train",
-                                subset_id=subset_id, device=args.device)
+    train_dataset = MakeDataset(points_path_list=train_points_path_list,
+                                subset_name_list=train_subset_name_list, device=args.device)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch,
                                   shuffle=True, drop_last=True,
                                   collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
-    val_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="val",
-                                subset_id=subset_id, device=args.device)
+    val_dataset = MakeDataset(points_path_list=val_points_path_list,
+                              subset_name_list=val_subset_name_list, device=args.device)
     val_dataloader = DataLoader(dataset=val_dataset, batch_size=args.batch,
-                                  shuffle=True, drop_last=True,
-                                  collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
+                                shuffle=True, drop_last=True,
+                                collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

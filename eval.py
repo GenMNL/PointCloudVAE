@@ -97,10 +97,11 @@ if __name__ == "__main__":
                 print("You should check subset name!")
                 exit()
 
+    test_points_path_list, test_subset_name_list = get_item_from_json(args.dataset_dir, "test", subset_id)
     # make eval dataloader
-    eval_dataset = MakeDataset(dataset_path=args.dataset_dir, eval="test",
-                                subset_id=subset_id, device=args.device)
-    eval_dataloader = DataLoader(dataset=eval_dataset, batch_size=1,
+    test_dataset = MakeDataset(points_path_list=test_points_path_list,
+                               subset_name_list=test_subset_name_list, device=args.device)
+    test_dataloader = DataLoader(dataset=test_dataset, batch_size=1,
                                   collate_fn=CollateUpSampling(args.device)) # DataLoader is iterable object.
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Model = PointVAE(in_dim=3, z_dim=args.z_dim).to(device=args.device)
@@ -116,4 +117,4 @@ if __name__ == "__main__":
         f.write('loss : {}\n'.format(train_tar['loss']))
 
     Model.load_state_dict(train_tar["model_state_dict"])
-    eval(Model, eval_dataloader, args.result_dir)
+    eval(Model, test_dataloader, args.result_dir)
