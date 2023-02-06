@@ -13,10 +13,10 @@ class PointVAE(nn.Module):
         B, C, N = x.shape
 
         # ==================
-        global_feature = self.encoder(x)
-        out = self.decoder(global_feature)
-        out = out.view(B, 2000, C)
-        return global_feature, out
+        # global_feature = self.encoder(x)
+        # out = self.decoder(global_feature)
+        # out = out.view(B, 2000, C)
+        # return global_feature, out
         # ==================
         point_feature, mu, log_var, z = self.encoder(x)
 
@@ -72,8 +72,8 @@ class Encoder(nn.Module):
         global_feature = torch.max(global_feature, dim=2)[0]
 
         # ==================
-        global_feature = self.fc_global(global_feature)
-        return global_feature
+        # global_feature = self.fc_global(global_feature)
+        # return global_feature
         # ==================
 
         # get mean and variance
