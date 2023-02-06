@@ -24,6 +24,11 @@ def export_ply(dir_path, file_name, type, point_cloud):
     path = os.path.join(dir_path, type, str(file_name)+".ply")
     o3d.io.write_point_cloud(path, pc)
 
+def resize(normal_tensor, max_values, min_values):
+    resize_tensor = normal_tensor*(max_values - min_values)
+    resize_tensor = resize_tensor + min_values
+    return resize_tensor
+
 def eval(model, dataloader, save_dir):
     model.eval()
 
@@ -37,11 +42,17 @@ def eval(model, dataloader, save_dir):
             original_point_cloud = data[0]
             _ = data[1]
             subset_name = data[2]
+            max_values = data[3]
+            min_values = data[4]
 
             _, C, N = original_point_cloud.shape
 
             # get prediction
-            _, _, z, prediction = model(original_point_cloud)
+            # _, _, z, prediction = model(original_point_cloud)
+            z, prediction = model(original_point_cloud)
+
+            original_point_cloud = resize(original_point_cloud, max_values, min_values)
+            prediction = resize(prediction.permute(0, 2, 1), max_values, min_values).permute(0, 2, 1)
 
             z = z.detach().cpu().numpy()
             z = z.reshape(args.z_dim)
@@ -52,7 +63,7 @@ def eval(model, dataloader, save_dir):
             original_point_cloud = original_point_cloud.detach().cpu().numpy()
             original_point_cloud = original_point_cloud.reshape(C, N).T
             prediction = prediction.detach().cpu().numpy()
-            prediction = prediction.reshape(C, N).T
+            prediction = prediction.reshape(2000, C)
 
             subset_save_dir = os.path.join(save_dir, subset_name[0])
             if not os.path.exists(subset_save_dir):

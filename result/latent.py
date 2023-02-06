@@ -1,4 +1,3 @@
-from sklearn.manifold import TSNE
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,14 +12,10 @@ data = df.values # transform value of dataframe to ndarray
 labels_path = os.path.join('./result/', 'labels.csv')
 labels = np.loadtxt(labels_path, dtype=float, delimiter=',')
 
-# apply T-SNE to the emb dim
-tsne = TSNE(n_components=2, perplexity=30, n_iter=1000)
-data_reduced = tsne.fit_transform(data)
-
 # visualizatin 2D plot
 fig = plt.figure()
 ax = fig.add_subplot(111)
-sc = ax.scatter(data_reduced[:,0], data_reduced[:,1], c=labels, cmap='jet')
-# plt.axis('off')
+sc = ax.scatter(data[:,0], data[:,1], c=labels, cmap='jet')
+plt.axis('off')
 plt.colorbar(sc)
 plt.show()

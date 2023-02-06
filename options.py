@@ -9,16 +9,21 @@ def make_parser():
     parser.add_argument("--subset", default="all")
     # train params
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--epochs", default=300, type=int)
+    parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--batch", default=50, type=int)
     parser.add_argument("--lr", default=1e-3, type=float)
     # model params
-    parser.add_argument("--z_dim", default=64, type=int) # 64 ~ 256
+    parser.add_argument("--z_dim", default=1024, type=int) # 64 ~ 256
     # test params
     parser.add_argument("-d", "--date", type=str)
     parser.add_argument("--type", default="best") # normal or best
     parser.add_argument("--result_dir", default="result")
     parser.add_argument("--year", default="2023")
     parser.add_argument("--select_result", default="best")
+
+    # Nan params for conditions.json
+    parser.add_argument("--other", default="")
+    parser.add_argument("--result", default="")
+    parser.add_argument("--next", default="")
 
     return parser

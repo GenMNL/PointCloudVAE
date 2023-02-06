@@ -4,8 +4,8 @@ import numpy as np
 
 if __name__ == "__main__":
 
-    subset = 'Airplane'
-    num = 240
+    subset = 'Chair'
+    num = 121
 
     path = os.path.join("result", subset, 'prediction', str(num)+".ply")
     # path = os.path.join("result", subset, 'ground_truth', str(num)+".ply")

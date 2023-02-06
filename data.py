@@ -15,7 +15,7 @@ class CollateUpSampling():
         # get batch size
         batch_size = len(batch_list)
 
-        input_batch, subset_name_bach = list(zip(*batch_list))
+        input_batch, subset_name_bach, a, b = list(zip(*batch_list))
         input_batch = list(input_batch)
         subset_name_list = list(subset_name_bach)
 
@@ -47,7 +47,10 @@ class CollateUpSampling():
         unique_mask_batch = torch.stack(unique_mask_list, dim=0).to(self.device).permute(0, 2, 1)
         subset_name_array = np.array(list(subset_name_list))
 
-        return input_batch, unique_mask_batch, subset_name_array
+        a = torch.stack(list(a), dim=0).to(self.device).permute(0, 2, 1)
+        b = torch.stack(list(b), dim=0).to(self.device).permute(0, 2, 1)
+
+        return input_batch, unique_mask_batch, subset_name_array, a, b
 
 class DataNormalization():
     def __init__(self):
@@ -60,7 +63,6 @@ class DataNormalization():
         Returns:
             tensor: (N, C)
         """
-
         max_values = torch.max(tensor, dim=0, keepdim=True)[0]
         min_values = torch.min(tensor, dim=0, keepdim=True)[0]
 
@@ -83,9 +85,11 @@ class MakeDataset(Dataset):
         points_path_list = self.points_path_list[index]
         points = np.loadtxt(points_path_list).astype(np.float32)
         points = torch.tensor(points, device=self.device)
+        normalized_points, max_values, min_values = self.transform(points)
 
         subset_name_list = self.subset_name_list[index]
-        return points, subset_name_list
+        # return points, subset_name_list
+        return normalized_points, subset_name_list, max_values, min_values
 
 def get_item_from_json(dataset_path, eval, subset_id):
     json_path = os.path.join(dataset_path, "train_test_split")
@@ -101,13 +105,16 @@ def get_item_from_json(dataset_path, eval, subset_id):
         if subset_id == "all":
             points_file = os.path.join(dataset_path, str(full_path[1]), "points", str(full_path[2])+".pts")
             points_path_list.append(points_file)
+
+            subset_name = search_subset(dataset_path, str(full_path[1]))
+            subset_name_list.append(subset_name)
         else:
             if str(full_path[1]) == subset_id:
                 points_file = os.path.join(dataset_path, str(full_path[1]), "points", str(full_path[2])+".pts")
                 points_path_list.append(points_file)
-        
-        subset_name = search_subset(dataset_path, str(full_path[1]))
-        subset_name_list.append(subset_name)
+
+                subset_name = search_subset(dataset_path, str(full_path[1]))
+                subset_name_list.append(subset_name)
 
     return points_path_list, subset_name_list
 

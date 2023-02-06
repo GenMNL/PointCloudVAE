@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 from tensorboardX import SummaryWriter
+from pytorch3d.loss import chamfer_distance
 import parser
 import datetime
 import os
@@ -15,20 +16,27 @@ from options import make_parser
 def train_one_epoch(model, dataloader, optim):
     model.train()
 
-    sum_mse_loss = 0.0
-    sum_kl_loss = 0.0
+    # sum_cd_loss = 0.0
+    # sum_mse_loss = 0.0
+    # sum_kl_loss = 0.0
     sum_train_loss = 0.0
     for i, data in enumerate(tqdm(dataloader, desc="train", leave=False)):
         # load data
         original_point_cloud = data[0]
 
         # get prediction
-        mu, log_var, _, prediction = model(original_point_cloud)
+        # mu, log_var, _, prediction = model(original_point_cloud)
+        _, prediction = model(original_point_cloud)
+
+        # reshape for cal cd_loss
+        original_point_cloud = original_point_cloud.permute(0, 2, 1)
 
         # cal loss
-        kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
-        mse_loss = torch.sum((prediction - original_point_cloud)**2)
-        train_loss = 10*kl_loss + mse_loss
+        # kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
+        # mse_loss = torch.sum((prediction - original_point_cloud)**2)
+        # train_loss = kl_loss + mse_loss
+        train_loss, _ = chamfer_distance(prediction, original_point_cloud)
+        # train_loss = kl_loss + cd_loss
 
         # optimization
         optim.zero_grad()
@@ -36,14 +44,17 @@ def train_one_epoch(model, dataloader, optim):
         optim.step()
 
         # sum train loss
-        sum_mse_loss += mse_loss
-        sum_kl_loss += kl_loss
+        # sum_mse_loss += mse_loss
+        # sum_cd_loss += cd_loss
+        # sum_kl_loss += kl_loss
         sum_train_loss += train_loss
 
-    sum_mse_loss /= len(dataloader)
-    sum_kl_loss /= len(dataloader)
+    # sum_mse_loss /= len(dataloader)
+    # sum_cd_loss /= len(dataloader)
+    # sum_kl_loss /= len(dataloader)
     sum_train_loss /= len(dataloader)
-    return sum_mse_loss, sum_kl_loss, sum_train_loss
+    # return sum_cd_loss, sum_kl_loss, sum_train_loss
+    return sum_train_loss
 
 def val_one_epoch(model, dataloader):
     model.eval()
@@ -55,12 +66,18 @@ def val_one_epoch(model, dataloader):
             original_point_cloud = data[0]
 
             # get prediction
-            mu, log_var, _, prediction = model(original_point_cloud)
+            # mu, log_var, _, prediction = model(original_point_cloud)
+            _, prediction = model(original_point_cloud)
+
+            # reshape for cal cd_loss
+            original_point_cloud = original_point_cloud.permute(0, 2, 1)
 
             # cal loss
-            kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
-            mse_loss = torch.sum((prediction - original_point_cloud)**2)
-            val_loss = 10*kl_loss + mse_loss
+            # kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
+            # mse_loss = torch.sum((prediction - original_point_cloud)**2)
+            cd_loss, _ = chamfer_distance(prediction, original_point_cloud)
+            # val_loss = kl_loss + mse_loss
+            val_loss = cd_loss
 
             # sum train loss
             sum_val_loss += val_loss
@@ -143,12 +160,14 @@ if __name__ == "__main__":
     for epoch in tqdm(range(1, args.epochs+1), desc="main loop"):
 
         # train and cal loss
-        mse_loss, kl_loss, train_loss = train_one_epoch(Model, train_dataloader, optim)
+        # cd_loss, kl_loss, train_loss = train_one_epoch(Model, train_dataloader, optim)
+        train_loss = train_one_epoch(Model, train_dataloader, optim)
         val_loss = val_one_epoch(Model, val_dataloader)
 
         # sabe time history of data
-        writter.add_scalar("mse_loss", mse_loss, epoch)
-        writter.add_scalar("kl_loss", kl_loss, epoch)
+        # writter.add_scalar("cd_loss", cd_loss, epoch)
+        # writter.add_scalar("mse_loss", mse_loss, epoch)
+        # writter.add_scalar("kl_loss", kl_loss, epoch)
         writter.add_scalar("train_loss", train_loss, epoch)
         writter.add_scalar("validation_loss", val_loss, epoch)
 
