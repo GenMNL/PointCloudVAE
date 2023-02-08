@@ -48,8 +48,8 @@ def eval(model, dataloader, save_dir):
             _, C, N = original_point_cloud.shape
 
             # get prediction
-            # _, _, z, prediction = model(original_point_cloud)
-            z, prediction = model(original_point_cloud)
+            _, _, z, prediction = model(original_point_cloud)
+            # z, prediction = model(original_point_cloud)
 
             original_point_cloud = resize(original_point_cloud, max_values, min_values)
             prediction = resize(prediction.permute(0, 2, 1), max_values, min_values).permute(0, 2, 1)

@@ -36,7 +36,7 @@ def train_one_epoch(model, dataloader, optim):
         # mse_loss = torch.sum((prediction - original_point_cloud)**2)
         # train_loss = kl_loss + mse_loss
         cd_loss, _ = chamfer_distance(prediction, original_point_cloud)
-        train_loss = kl_loss + 100*cd_loss
+        train_loss = kl_loss + 5e7*cd_loss
 
         # optimization
         optim.zero_grad()
@@ -77,7 +77,7 @@ def val_one_epoch(model, dataloader):
             # mse_loss = torch.sum((prediction - original_point_cloud)**2)
             cd_loss, _ = chamfer_distance(prediction, original_point_cloud)
             # val_loss = kl_loss + mse_loss
-            val_loss = kl_loss + 100*cd_loss
+            val_loss = kl_loss + 1e7*cd_loss
 
             # sum train loss
             sum_val_loss += val_loss

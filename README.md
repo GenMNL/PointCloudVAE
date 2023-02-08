@@ -1,5 +1,8 @@
 # PointCloudVAE
-valiational autoencoder of pointcloud
+valiational autoencoder of pointcloud </br>
+**CAUTION:**</br>
+Changes may be made to test various things.
+
 
 ## Environmet
 - python 3.8.10
@@ -25,11 +28,11 @@ Settings for training and evaluation are in [options.py](https://github.com/GenM
 ## Result
 
 ### AutoEncoder
-latent dim = 1024
 
-latent dim = 2
+![ground truth](./readme/chair_gt.png) 
+
+![latent dim = 1024](./readme/chair_1024_pred.png) 
 
 ### Visualizing latent space
-latent dim = 1024 (visualizing by t-sne)
 
-latent dim = 2
+![latent dim=1024 (visualizing by t-sne)](./readme/1024_latent_space.png) 
